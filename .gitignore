@@ -1,0 +1,11 @@
+data/
+__pycache__/
+*.pyc
+*.bin
+*.pt
+*.pth
+*.safetensors
+.venv/
+venv/
+checkpoints/
+*.log
