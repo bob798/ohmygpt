@@ -29,14 +29,11 @@ class ModelConfig:
 
 
 def small_config(**overrides) -> ModelConfig:
-    cfg = ModelConfig(dim=256, n_layers=4, n_heads=8, n_kv_heads=4)
-    for k, v in overrides.items():
-        setattr(cfg, k, v)
-    return cfg
+    preset = dict(dim=256, n_layers=4, n_heads=8, n_kv_heads=4)
+    preset.update(overrides)
+    return ModelConfig(**preset)
 
 
 def base_config(**overrides) -> ModelConfig:
-    cfg = ModelConfig()  # defaults are the base preset
-    for k, v in overrides.items():
-        setattr(cfg, k, v)
-    return cfg
+    # defaults of ModelConfig are the base preset
+    return ModelConfig(**overrides)

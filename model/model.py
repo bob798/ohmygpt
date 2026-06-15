@@ -158,6 +158,7 @@ class Transformer(nn.Module):
 
     def forward(self, idx, targets=None):
         B, T = idx.shape
+        assert T <= self.cfg.max_seq_len, f"sequence length {T} exceeds max_seq_len {self.cfg.max_seq_len}"
         h = self.dropout(self.tok_embeddings(idx))
         freqs_cis = self.freqs_cis[:T]
         for layer in self.layers:
