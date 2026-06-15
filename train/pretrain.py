@@ -45,6 +45,10 @@ def main():
     texts = load_pretrain_texts(args.data, args.limit)
     ds = PretrainDataset(texts, tok, max_seq_len=cfg.max_seq_len)
     dl = DataLoader(ds, batch_size=args.batch_size, shuffle=True, num_workers=2, drop_last=True)
+    assert len(dl) > 0, (
+        "corpus too small for max_seq_len with drop_last=True; "
+        "add more data or reduce --batch_size/max_seq_len"
+    )
 
     model = Transformer(cfg).to(device)
     print(f"params: {model.num_params()/1e6:.1f}M | device: {device} | batches/epoch: {len(dl)}")
@@ -54,7 +58,7 @@ def main():
     amp_dtype = torch.bfloat16 if (use_amp and torch.cuda.is_bf16_supported()) else torch.float16
     scaler = torch.cuda.amp.GradScaler(enabled=(use_amp and amp_dtype == torch.float16))
 
-    total_steps = (len(dl) // args.accum_steps) * args.epochs
+    total_steps = max(1, (len(dl) // args.accum_steps) * args.epochs)
     step = 0
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     model.train()

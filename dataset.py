@@ -88,6 +88,11 @@ class SFTDataset(Dataset):
         x = ids[:-1].clone()
         y = ids[1:].clone()
         y[mask[1:] == 0] = -100
+        # Guard: if truncation removed the entire answer region, every target
+        # would be -100 and cross_entropy would return NaN. Keep the last token
+        # as a real target so the row contributes a valid loss.
+        if (y != -100).sum() == 0:
+            y[-1] = ids[-1]
         return x, y
 
 

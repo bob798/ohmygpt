@@ -20,8 +20,13 @@ def generate(model, tok, prompt_ids, max_new_tokens=200, temperature=0.8, top_p=
         cum = torch.cumsum(sorted_probs, dim=-1)
         mask = cum - sorted_probs > top_p
         sorted_probs[mask] = 0.0
-        sorted_probs /= sorted_probs.sum(dim=-1, keepdim=True)
-        next_sorted = torch.multinomial(sorted_probs, num_samples=1)
+        denom = sorted_probs.sum(dim=-1, keepdim=True)
+        # Fall back to the top token if everything underflowed to zero.
+        if (denom <= 0).any():
+            next_sorted = torch.zeros(sorted_probs.size(0), 1, dtype=torch.long, device=sorted_probs.device)
+        else:
+            sorted_probs /= denom
+            next_sorted = torch.multinomial(sorted_probs, num_samples=1)
         next_id = sorted_idx.gather(-1, next_sorted)
         idx = torch.cat([idx, next_id], dim=1)
         if next_id.item() == eos:
