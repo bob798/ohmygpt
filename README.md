@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="assets/banner.svg" alt="ohmygpt — 从0到1手写的中文小型大语言模型" width="100%">
+</p>
+
+<p align="center"><b>中文</b> · <a href="README_EN.md">English</a></p>
+
 # ohmygpt
 
 > 从 0 到 1 手写一个中文小型大语言模型 —— minimind 风格的教学项目。
@@ -26,8 +32,8 @@ ohmygpt 的目标是**学习 LLM 内部原理**，而不是追求 SOTA 性能。
 | 分词器 | `train/train_tokenizer.py` | byte-level BPE，词表 6400，特殊符 `<unk>/<s>/</s>` + 对话模板 |
 | 数据集 | `dataset.py` | `PretrainDataset`（打包定长窗口）+ `SFTDataset`（对话模板 + 仅对答案计损失） |
 | 训练 | `train/pretrain.py`, `train/sft.py` | AdamW、cosine 调度 + warmup、bf16/fp16 混合精度、梯度累积、梯度裁剪 |
-| 推理 | `inference.py` | top-p（nucleus）采样，支持补全（complete）与对话（chat）两种模式 |
-| 测试 | `tests/` | RMSNorm/RoPE/注意力/前馈/整模型单测 + overfit 校验 + 分词器往返 + 损失掩码测试 |
+| 推理 | `inference.py` | top-p（nucleus）采样，KV-cache 加速，支持补全（complete）与对话（chat）两种模式 |
+| 测试 | `tests/` | RMSNorm/RoPE/注意力/前馈/整模型单测 + overfit 校验 + 分词器往返 + 损失掩码 + 缓存生成一致性测试 |
 
 ## Model presets
 
@@ -72,8 +78,10 @@ pip install -r requirements.txt
 
 ## Pipeline
 
-1. 下载 minimind 数据集 `pretrain_hq.jsonl` 和 `sft_mini_512.jsonl` 放入 `data/`
-   （来自 [minimind 数据集发布](https://github.com/jingyaogong/minimind)，HuggingFace `jingyaogong/minimind_dataset`）。
+1. 下载 minimind 数据集到 `data/`（来自 HuggingFace `jingyaogong/minimind_dataset`）：
+   ```bash
+   python scripts/download_data.py            # 国内慢/被墙可加：--endpoint https://hf-mirror.com
+   ```
 2. 训练分词器：`python train/train_tokenizer.py`
 3. 预训练：`python train/pretrain.py --preset base`
 4. 指令微调：`python train/sft.py --preset base`
@@ -92,6 +100,7 @@ python train/pretrain.py --preset small --limit 2000 --batch_size 4 --accum_step
 训练前务必先跑这两个检查，它们能在浪费 GPU 时间前抓出接线错误：
 
 - `pytest tests/test_model.py::test_overfit_single_batch` —— 单批过拟合，loss 必须降到 0.1 以下。
+- `pytest tests/test_generate.py` —— KV-cache 生成结果须与朴素全量重算一致。
 - `pytest tests/test_tokenizer.py` —— 分词器编解码往返一致。
 
 完整测试：`pytest -v`。
