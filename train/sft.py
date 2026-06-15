@@ -36,7 +36,7 @@ def main():
     dl = DataLoader(ds, batch_size=args.batch_size, shuffle=True, num_workers=2, drop_last=True)
 
     model = Transformer(cfg).to(device)
-    ckpt = torch.load(args.init, map_location=device)
+    ckpt = torch.load(args.init, map_location=device, weights_only=False)
     model.load_state_dict(ckpt["model"])
     print(f"loaded {args.init} | params {model.num_params()/1e6:.1f}M | batches/epoch {len(dl)}")
 
