@@ -11,9 +11,14 @@ def generate(model, tok, prompt_ids, max_new_tokens=200, temperature=0.8, top_p=
     model.eval()
     eos = tok.token_id("</s>")
     idx = torch.tensor([prompt_ids], dtype=torch.long, device=device)
-    for _ in range(max_new_tokens):
-        idx_cond = idx[:, -model.cfg.max_seq_len:]
-        logits, _ = model(idx_cond)
+    kv_caches = [None] * model.cfg.n_layers
+    # Prefill the prompt, then decode incrementally.
+    cur = idx
+    start_pos = 0
+    generated = []
+    for step in range(max_new_tokens):
+        logits, kv_caches = model.forward_cached(cur, start_pos, kv_caches)
+        start_pos += cur.shape[1]
         logits = logits[:, -1, :] / max(temperature, 1e-5)
         probs = F.softmax(logits, dim=-1)
         sorted_probs, sorted_idx = torch.sort(probs, descending=True)
@@ -28,10 +33,14 @@ def generate(model, tok, prompt_ids, max_new_tokens=200, temperature=0.8, top_p=
             sorted_probs /= denom
             next_sorted = torch.multinomial(sorted_probs, num_samples=1)
         next_id = sorted_idx.gather(-1, next_sorted)
-        idx = torch.cat([idx, next_id], dim=1)
+        generated.append(next_id.item())
         if next_id.item() == eos:
             break
-    return idx[0].tolist()
+        # If we ever exceed context, stop (cache has no eviction).
+        if start_pos + 1 > model.cfg.max_seq_len:
+            break
+        cur = next_id  # next step processes just the new token
+    return prompt_ids + generated
 
 
 def build_chat_prompt(tok, user_msg):

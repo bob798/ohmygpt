@@ -172,5 +172,26 @@ class Transformer(nn.Module):
             )
         return logits, loss
 
+    @torch.no_grad()
+    def forward_cached(self, idx, start_pos, kv_caches):
+        """Incremental forward for generation.
+        idx: (B, T_new) tokens to process now.
+        start_pos: absolute position of idx[:, 0] in the full sequence.
+        kv_caches: list (len n_layers) of (past_k, past_v) or None per layer.
+        Returns (logits, new_kv_caches). logits: (B, T_new, vocab).
+        """
+        B, T = idx.shape
+        assert start_pos + T <= self.cfg.max_seq_len, "exceeds max_seq_len"
+        h = self.tok_embeddings(idx)
+        freqs_cis = self.freqs_cis[start_pos:start_pos + T]
+        new_caches = []
+        for layer, cache in zip(self.layers, kv_caches):
+            cache = cache if cache is not None else (None, None)
+            h, new_cache = layer(h, freqs_cis, start_pos, cache)
+            new_caches.append(new_cache)
+        h = self.norm(h)
+        logits = self.lm_head(h)
+        return logits, new_caches
+
     def num_params(self) -> int:
         return sum(p.numel() for p in self.parameters())
